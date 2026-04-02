@@ -1,0 +1,95 @@
+### 1. Verify System Bank Account (ID 1) was seeded
+GET http://localhost:8080/api/accounts/1
+Accept: application/json
+
+### 2. Create Alice's Account (SAVINGS, RON)
+POST http://localhost:8080/api/accounts
+Content-Type: application/json
+
+{
+  "ownerName": "Alice Popescu",
+  "iban": "RO47BTRLEURCRT0550023801",
+  "currency": "RON",
+  "accountType": "SAVINGS"
+}
+
+### 3. Create Bob's Account (CHECKING, EUR)
+POST http://localhost:8080/api/accounts
+Content-Type: application/json
+
+{
+  "ownerName": "Bob Smith",
+  "iban": "DE89370400440532013000",
+  "currency": "EUR",
+  "accountType": "CHECKING"
+}
+
+### 4. Fund Alice from the System Bank (10,000 RON)
+POST http://localhost:8080/api/transfers
+Content-Type: application/json
+
+{
+  "sourceIban": "RO49AAAA1B31007593840000",
+  "targetIban": "RO47BTRLEURCRT0550023801",
+  "amount": 10000.00
+}
+
+### 5. Send money: Alice to Bob (Currency Conversion Test)
+POST http://localhost:8080/api/transfers
+Content-Type: application/json
+
+{
+  "sourceIban": "RO47BTRLEURCRT0550023801",
+  "targetIban": "DE89370400440532013000",
+  "amount": 500.00,
+  "idempotencyKey": "txn-alice-bob-001"
+}
+
+### 6. Test Idempotency (Run the exact same request again)
+# Click play on this again. The response should be identical to Step 5,
+# and Bob's balance should NOT increase a second time.
+POST http://localhost:8080/api/transfers
+Content-Type: application/json
+
+{
+  "sourceIban": "RO47BTRLEURCRT0550023801",
+  "targetIban": "DE89370400440532013000",
+  "amount": 500.00,
+  "idempotencyKey": "txn-alice-bob-001"
+}
+
+### 7. Check Alice's Ledger (Verify 2 transactions: 1 Deposit, 1 Transfer Out)
+# Assuming Alice's Account ID is 2
+GET http://localhost:8080/api/accounts/2/transactions
+Accept: application/json
+
+### 8. Test the 5,000 EUR Savings Limit (Should fail with 409 Conflict & "REJECTED")
+POST http://localhost:8080/api/transfers
+Content-Type: application/json
+
+{
+  "sourceIban": "RO49AAAA1B31007593840000_ALICE",
+  "targetIban": "DE89370400440532013000",
+  "amount": 30000.00
+}
+
+### 9. Test Insufficient Funds (Should fail with 409 Conflict)
+POST http://localhost:8080/api/transfers
+Content-Type: application/json
+
+{
+  "sourceIban": "DE89370400440532013000",
+  "targetIban": "RO49AAAA1B31007593840000_ALICE",
+  "amount": 999999.00
+}
+
+### 10. Test Invalid IBAN Exception Handler (Should fail with 400 Bad Request)
+POST http://localhost:8080/api/accounts
+Content-Type: application/json
+
+{
+  "ownerName": "Hacker",
+  "iban": "",
+  "currency": "RON",
+  "accountType": "CHECKING"
+}
